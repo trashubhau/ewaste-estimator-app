@@ -47,32 +47,61 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Handle form submission
-    uploadForm.addEventListener('submit', async (event) => {
-        event.preventDefault(); // Stop default form submission
+// Handle form submission
+uploadForm.addEventListener('submit', async (event) => {
+    event.preventDefault(); // Stop default form submission
 
-        const file = imageUpload.files[0];
-        if (!file) {
-            showStatus('Please select an image file first.', 'error');
+    // Get input values
+    const brand = brandInput.value.trim();
+    const model = modelInput.value.trim();
+    const issues = issuesInput.value.trim();
+
+    // Validate input fields
+    if (!brand || !model) {
+        showStatus("⚠️ Please enter both brand and model.", "error");
+        return;
+    }
+
+    const file = imageUpload.files[0];
+    if (!file) {
+        showStatus("⚠️ Please select an image file first.", "error");
+        return;
+    }
+
+    // --- Prepare UI for loading ---
+    setLoadingState(true);
+    clearStatus(); // Clear previous errors/status
+    resultsDisplay.classList.add('hidden'); // Hide old results
+
+    // --- Debugging Log ---
+    console.log(`DEBUG: Sending request -> Brand: ${brand}, Model: ${model}, Issues: ${issues}`);
+
+    // --- API Call ---
+    try {
+        const response = await fetch(`${API_ENDPOINT}/estimate?brand=${encodeURIComponent(brand)}&model=${encodeURIComponent(model)}&issues=${encodeURIComponent(issues)}`, {
+            method: "GET",
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status} - ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log("DEBUG: Response received", result);
+
+        if (!result.estimated_price) {
+            showStatus("⚠️ No valid estimate found.", "error");
             return;
         }
 
-        // --- Prepare UI for loading ---
-        setLoadingState(true);
-        clearStatus(); // Clear previous errors/status
-        resultsDisplay.classList.add('hidden'); // Hide old results
-
-        // --- Prepare data for backend ---
-        const formData = new FormData();
-        formData.append('image', file); // Key 'image' must match backend expectation
-        formData.append('brand', brandInput.value.trim());
-        formData.append('model', modelInput.value.trim());
-        formData.append('issues', issuesInput.value.trim());
-
-        // --- API Call ---
-        try {
-            const response = await fetch(`${API_ENDPOINT}/estimate?brand=${encodeURIComponent(brandInput.value.trim())}&model=${encodeURIComponent(modelInput.value.trim())}&issues=${encodeURIComponent(issuesInput.value.trim())}`, {
-    method: 'GET',
+        displayResults(result);
+    } catch (error) {
+        console.error("Network Error:", error);
+        showStatus("❌ Could not connect to the estimation server. Try again later.", "error");
+    } finally {
+        // --- Reset UI after loading ---
+        setLoadingState(false);
+    }
 });
 
 
