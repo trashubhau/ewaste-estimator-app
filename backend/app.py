@@ -26,66 +26,99 @@ PRICE_STRUCTURE = {
 
 # --- Helper Function: Gemini Analysis ---
 def analyze_image_with_gemini(image_data):
+    """Sends image data to Gemini for analysis and returns parsed JSON or error dict."""
+    api_key = os.environ.get('GEMINI_API_KEY')
+    if not api_key:
+        print("FATAL ERROR: GEMINI_API_KEY not set.")
+        return {"error": "Server configuration error: API key missing."}
+    
     try:
-        genai.configure(api_key=os.environ.get('GEMINI_API_KEY'))
+        genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-1.5-flash')
 
         img_pil = Image.open(io.BytesIO(image_data))
 
         prompt = """
-        Analyze the image of an electronic waste item. Respond ONLY with a valid JSON object containing:
-        - "device_type": string (e.g., "smartphone", "laptop", "tablet", "monitor", "keyboard", "mouse", "other", "unknown").
-        - "condition_description": string (brief physical condition like 'minor scratches', 'screen cracked').
-        - "extracted_text": string (brand/model text if visible, otherwise "").
+        Analyze the image of an electronic waste item. Respond ONLY with a valid JSON object containing these keys:
+        - "device_type": string (e.g., "smartphone", "laptop", "tablet", "monitor", "keyboard", "mouse", "other", "unknown"). Use lowercase.
+        - "condition_description": string (brief description of physical condition).
+        - "extracted_text": string (any visible brand or model text, otherwise "").
+
+        Example JSON:
+        {
+          "device_type": "laptop",
+          "condition_description": "Minor scratches on lid, screen intact.",
+          "extracted_text": "Dell Inspiron"
+        }
         """
 
         print("DEBUG: Sending request to Gemini API...")
         response = model.generate_content([prompt, img_pil], stream=False)
         response.resolve()
+        print(f"DEBUG: Raw Gemini response: {response.text}")
 
-        # Ensure response is in valid JSON format
-        cleaned_text = response.text.strip().replace('```json', '').replace('```', '').strip()
+        cleaned_text = response.text.strip().lstrip('```json').rstrip('```').strip()
+        if not cleaned_text:
+            print("WARNING: Empty response from Gemini.")
+            return {"error": "Analysis returned no content."}
 
-        print(f"DEBUG: Gemini Response (Cleaned) - {cleaned_text}")
-        return json.loads(cleaned_text)
+        parsed_response = json.loads(cleaned_text)
+        print(f"DEBUG: Parsed Gemini response: {parsed_response}")  # Print full JSON
+
+        return parsed_response
 
     except json.JSONDecodeError as json_err:
-        print(f"ERROR: JSON Decode Issue - {json_err}")
-        return {"error": "Invalid JSON format from Gemini."}
+        print(f"ERROR: Failed to parse JSON response - {json_err}")
+        return {"error": "Invalid response format."}
     except Exception as e:
-        print(f"ERROR: Gemini API Call Failed - {e}")
+        print(f"ERROR: Unexpected issue in Gemini API call - {e}")
         traceback.print_exc()
-        return {"error": "An error occurred while analyzing the image."}
+        return {"error": "Error during image analysis."}
 
 # --- Helper Function: Condition Categorization ---
 def categorize_condition(description):
+    """Categorizes condition based on keywords in the description."""
     description_lower = description.lower() if description else ""
 
-    fair_keywords = ["crack", "broken", "dent", "heavy wear", "missing", "deep scratch", "severe"]
-    great_keywords = ["like new", "pristine", "excellent", "no marks", "mint condition"]
-    good_keywords = ["minor scratch", "scuff", "small dent", "moderate wear", "used"]
+    fair_keywords = ["crack", "shatter", "broken", "major dent", "heavy wear", "missing", "deep scratch", "water damage", "bent", "severe damage"]
+    great_keywords = ["like new", "pristine", "excellent", "no visible marks", "minimal wear", "very clean", "mint condition"]
+    good_keywords = ["minor scratch", "scuff", "small dent", "moderate wear", "some signs of use", "good condition", "fully functional"]
 
-    if any(k in description_lower for k in fair_keywords):
+    print(f"DEBUG: Condition description received - '{description_lower}'")
+
+    if any(k in description_lower for k in fair_keywords): 
+        print("DEBUG: Categorized as 'fair'")
         return "fair"
-    if any(k in description_lower for k in great_keywords):
+    if any(k in description_lower for k in great_keywords): 
+        print("DEBUG: Categorized as 'great'")
         return "great"
-    if any(k in description_lower for k in good_keywords):
+    if any(k in description_lower for k in good_keywords): 
+        print("DEBUG: Categorized as 'good'")
         return "good"
 
-    return "good"  # Default to "good" if no keywords match
-
+    print("DEBUG: No strong match, defaulting to 'good'.")
+    return "good"
+    
 # --- Helper Function: Price Lookup ---
 def get_price_estimate(device_type, condition_category, price_db):
+    """Retrieves the price range from the structure with fallbacks."""
     device_lower = device_type.lower().strip() if device_type else "unknown"
 
     if device_lower not in price_db:
-        print(f"Warning: Unknown device type '{device_lower}', using fallback pricing.")
+        print(f"WARNING: Device type '{device_lower}' not found, using 'unknown'.")
         device_lower = "unknown"
 
     device_prices = price_db.get(device_lower, price_db["unknown"])
     price_range = device_prices.get(condition_category, device_prices["fair"])
 
-    return f"${price_range[0]} - ${price_range[1]}" if len(price_range) == 2 else "$1 - $10 (Error)"
+    print(f"DEBUG: Price lookup - Device: {device_lower}, Condition: {condition_category}, Price Range: {price_range}")
+
+    if price_range and len(price_range) == 2:
+        return f"${price_range[0]} - ${price_range[1]}"
+    else:
+        print(f"ERROR: Invalid price range for {device_lower}/{condition_category}. Defaulting.")
+        return "$1 - $5 (Error)"
+
 # ============================================
 #      Flask App Initialization & Routes
 # ============================================
