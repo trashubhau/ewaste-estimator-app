@@ -109,10 +109,7 @@ def home():
 # backend/app.py
 # ... (keep imports, PRICE_STRUCTURE, helper function definitions, app = Flask(__name__), CORS(app)) ...
 
-# Simple route to check if the backend is running
-@app.route('/')
-def home():
-    return "E-Waste Estimator Backend is Alive!"
+
 
 # The main endpoint for estimation - TEMPORARILY SIMPLIFIED FOR DEBUGGING 405
 @app.route('/estimate', methods=['POST']) # Ensure methods=['POST'] is still here!
