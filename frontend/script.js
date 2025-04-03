@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const API_ENDPOINT = 'https://ewaste-estimator-app.onrender.com';
+    const API_ENDPOINT = 'https://ewaste-estimator-app.onrender.com/';
 
     const uploadForm = document.getElementById('upload-form');
     const imageUpload = document.getElementById('image-upload');
