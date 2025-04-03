@@ -1,10 +1,10 @@
 # backend/app.py
+from flask_cors import CORS # For allowing frontend to talk to backend
 import os
 import io
 import json
 import google.generativeai as genai
 from flask import Flask, request, jsonify
-from flask_cors import CORS # For allowing frontend to talk to backend
 from PIL import Image
 
 # --- Copy your price structure here ---
