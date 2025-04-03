@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Waste Price Estimator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>E-Waste Price Estimator</h1>
+        <p class="instructions">Upload an image of your e-waste item, add optional details, and click "Get Estimate" to receive an approximate value range.</p>
+
+        <!-- Form for input elements -->
+        <form id="upload-form" action="#" method="post" enctype="multipart/form-data">
+            <!-- Image Upload -->
+            <div class="form-group">
+                <label for="image-upload" class="file-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-upload" viewBox="0 0 16 16">
+                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                        <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                    </svg>
+                    Select Image
+                </label>
+                <input type="file" id="image-upload" name="image" accept="image/*" required>
+                <span id="file-name-display">No file chosen</span>
+            </div>
+
+            <!-- Image Preview -->
+            <div class="image-preview-container hidden" id="image-preview-container">
+                <img id="image-preview" src="#" alt="Image Preview" />
+            </div>
+
+            <!-- Optional Text Inputs -->
+            <div class="form-group optional-inputs">
+                <label for="brand">Brand (Optional):</label>
+                <input type="text" id="brand" name="brand" placeholder="e.g., Apple, Samsung, Dell">
+
+                <label for="model">Model (Optional):</label>
+                <input type="text" id="model" name="model" placeholder="e.g., iPhone 13, XPS 15">
+
+                <label for="issues">Known Issues (Optional):</label>
+                <textarea id="issues" name="issues" rows="3" placeholder="e.g., Screen cracked, battery drains fast, won't turn on"></textarea>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" id="submit-button">
+                <span class="button-text">Get Estimate</span>
+                <span class="spinner hidden"></span> <!-- Loading spinner -->
+            </button>
+        </form>
+
+        <!-- Status/Error Messages -->
+        <div id="status-message" class="status" aria-live="polite"></div>
+
+        <!-- Results Display Area -->
+        <div id="results-display" class="results hidden">
+            <h2>Estimation Result</h2>
+            <p class="price-label">Estimated Price Range:</p>
+            <p id="price-range">-</p>
+            <p id="detected-info" class="detected-info"></p>
+            <p class="disclaimer">
+                <strong>Disclaimer:</strong> This is an automated estimate based *only* on visual appearance and provided information. Actual buy-back or resale value depends heavily on internal functionality, specific model, market demand, accessories, and thorough inspection by a qualified technician. Prices may vary significantly.
+            </p>
+        </div>
+    </div>
+
+    <!-- Link JavaScript File -->
+    <script src="script.js"></script>
+</body>
+</html>
