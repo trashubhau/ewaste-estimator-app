@@ -42,18 +42,15 @@ def analyze_image_with_gemini(image_data):
 
         # Define the prompt asking for structured JSON output
         prompt = """
-        Analyze the image of an electronic waste item. Respond ONLY with a valid JSON object containing these keys:
-        - "device_type": string (e.g., "smartphone", "laptop", "tablet", "monitor", "keyboard", "mouse", "other", "unknown"). Use lowercase.
-        - "condition_description": string (brief description of visible physical condition: scratches, cracks, dents, wear, cleanliness).
-        - "extracted_text": string (any clearly visible brand or model text, otherwise empty string "").
-
-        Example:
+        Analyze the image of an electronic waste item. Return ONLY a JSON object with these keys:
         {
-          "device_type": "laptop",
-          "condition_description": "Minor scratches on lid, screen looks intact.",
-          "extracted_text": "Dell"
+         "device_type": "smartphone/laptop/tablet/monitor/keyboard/mouse/unknown",
+          "condition_description": "string",
+          "extracted_text": "string"
         }
+        Ensure that you provide a valid JSON response with double quotes and NO extra text.
         """
+
         
         # Make the API call
         print("DEBUG: Sending request to Gemini API...")
