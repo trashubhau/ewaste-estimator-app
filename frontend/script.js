@@ -1,8 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Configuration ---
-    const API_ENDPOINT = 'https://ewaste-estimator-app.onrender.com'; // Change if needed
+    const API_ENDPOINT = 'https://ewaste-estimator-app.onrender.com';
 
-    // --- Get DOM Elements ---
     const uploadForm = document.getElementById('upload-form');
     const imageUpload = document.getElementById('image-upload');
     const imagePreviewContainer = document.getElementById('image-preview-container');
@@ -18,11 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsDisplay = document.getElementById('results-display');
     const priceRangeDisplay = document.getElementById('price-range');
     const detectedInfoDisplay = document.getElementById('detected-info');
-    const debugOutput = document.getElementById('debug-output');
 
-    // --- Event Listeners ---
-
-    // Handle file selection and preview
     imageUpload.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (file) {
@@ -44,9 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Handle form submission
     uploadForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
+        event.preventDefault(); // Prevent default form submission
 
         const file = imageUpload.files[0];
         if (!file) {
@@ -58,20 +51,9 @@ document.addEventListener('DOMContentLoaded', () => {
         clearStatus();
         resultsDisplay.classList.add('hidden');
 
-        const formData = new FormData();
-        formData.append('image', file);
-        formData.append('brand', brandInput.value.trim());
-        formData.append('model', modelInput.value.trim());
-        formData.append('issues', issuesInput.value.trim());
-
-        // --- Debugging: Show API request details ---
-        debugOutput.textContent = `Sending request to: ${API_ENDPOINT}/estimate\nBrand: ${brandInput.value.trim()}\nModel: ${modelInput.value.trim()}\nIssues: ${issuesInput.value.trim()}`;
-        document.getElementById('debug-log').style.display = 'block';
-
         try {
-            const response = await fetch(`${API_ENDPOINT}/estimate`, {
-                method: 'POST',
-                body: formData
+            const response = await fetch(`${API_ENDPOINT}/estimate?brand=${encodeURIComponent(brandInput.value.trim())}&model=${encodeURIComponent(modelInput.value.trim())}&issues=${encodeURIComponent(issuesInput.value.trim())}`, {
+                method: 'GET',
             });
 
             if (response.ok) {
@@ -99,27 +81,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Helper Functions ---
-
     function setLoadingState(isLoading) {
         submitButton.disabled = isLoading;
-        if (isLoading) {
-            buttonText.textContent = 'Processing...';
-            spinner.classList.remove('hidden');
-        } else {
-            buttonText.textContent = 'Get Estimate';
-            spinner.classList.add('hidden');
-        }
+        buttonText.textContent = isLoading ? 'Processing...' : 'Get Estimate';
+        spinner.classList.toggle('hidden', !isLoading);
     }
 
     function showStatus(message, type = 'info') {
         statusMessage.textContent = message;
         statusMessage.className = 'status';
-        if (type === 'error') {
-            statusMessage.classList.add('error');
-        } else if (type === 'loading') {
-            statusMessage.classList.add('loading');
-        }
+        if (type === 'error') statusMessage.classList.add('error');
+        else if (type === 'loading') statusMessage.classList.add('loading');
     }
 
     function clearStatus() {
