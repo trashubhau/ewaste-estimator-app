@@ -11,53 +11,42 @@
         <h1>E-Waste Price Estimator</h1>
         <p class="instructions">Upload an image of your e-waste item, add optional details, and click "Get Estimate" to receive an approximate value range.</p>
 
-        <!-- Form for input elements -->
         <form id="upload-form">
-            <!-- Image Upload -->
             <div class="form-group">
-                <label for="image-upload" class="file-label">
-                    Select Image
-                </label>
-                <input type="file" id="image-upload" name="image" accept="image/*" required>
+                <label for="image-upload" class="file-label">Select Image</label>
+                <input type="file" id="image-upload" accept="image/*">
                 <span id="file-name-display">No file chosen</span>
             </div>
 
-            <!-- Image Preview -->
             <div class="image-preview-container hidden" id="image-preview-container">
-                <img id="image-preview" src="#" alt="Image Preview" />
+                <img id="image-preview" src="#" alt="Image Preview">
             </div>
 
-            <!-- Optional Text Inputs -->
             <div class="form-group optional-inputs">
                 <label for="brand">Brand (Optional):</label>
-                <input type="text" id="brand" name="brand" placeholder="e.g., Apple, Samsung, Dell">
+                <input type="text" id="brand" placeholder="e.g., Apple, Samsung, Dell">
 
                 <label for="model">Model (Optional):</label>
-                <input type="text" id="model" name="model" placeholder="e.g., iPhone 13, XPS 15">
+                <input type="text" id="model" placeholder="e.g., iPhone 13, XPS 15">
 
                 <label for="issues">Known Issues (Optional):</label>
-                <textarea id="issues" name="issues" rows="3" placeholder="e.g., Screen cracked, battery drains fast, won't turn on"></textarea>
+                <textarea id="issues" rows="3" placeholder="e.g., Screen cracked, battery drains fast"></textarea>
             </div>
 
-            <!-- Submit Button -->
             <button type="submit" id="submit-button">
                 <span class="button-text">Get Estimate</span>
                 <span class="spinner hidden"></span>
             </button>
         </form>
 
-        <!-- Status/Error Messages -->
-        <div id="status-message" class="status" aria-live="polite"></div>
+        <div id="status-message" class="status"></div>
 
-        <!-- Results Display Area -->
         <div id="results-display" class="results hidden">
             <h2>Estimation Result</h2>
             <p class="price-label">Estimated Price Range:</p>
             <p id="price-range">-</p>
             <p id="detected-info" class="detected-info"></p>
-            <p class="disclaimer">
-                <strong>Disclaimer:</strong> This is an automated estimate based *only* on visual appearance and provided information. Actual buy-back or resale value depends heavily on internal functionality, specific model, market demand, accessories, and thorough inspection by a qualified technician. Prices may vary significantly.
-            </p>
+            <p class="disclaimer"><strong>Disclaimer:</strong> This is an estimate based on visual appearance and provided details.</p>
         </div>
     </div>
 
