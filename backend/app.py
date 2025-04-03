@@ -26,107 +26,66 @@ PRICE_STRUCTURE = {
 
 # --- Helper Function: Gemini Analysis ---
 def analyze_image_with_gemini(image_data):
-    """Sends image data to Gemini for analysis and returns parsed JSON or error dict."""
-    api_key = os.environ.get('GEMINI_API_KEY')
-    if not api_key:
-        print("FATAL ERROR: GEMINI_API_KEY environment variable not set on the server.")
-        # Note: This error will likely prevent the app from starting if key is missing during init sometimes
-        return {"error": "Server configuration error: API key missing."}
     try:
-        # Configure the API key for this specific call (safer if app runs multiple things)
-        genai.configure(api_key=api_key)
-        # Choose a model that supports vision input
-        model = genai.GenerativeModel('gemini-1.5-flash') # Or 'gemini-pro-vision'
-        
+        genai.configure(api_key=os.environ.get('GEMINI_API_KEY'))
+        model = genai.GenerativeModel('gemini-1.5-flash')
+
         img_pil = Image.open(io.BytesIO(image_data))
 
-        # Define the prompt asking for structured JSON output
         prompt = """
-        Analyze the image of an electronic waste item. Respond ONLY with a valid JSON object containing these keys:
-        - "device_type": string (e.g., "smartphone", "laptop", "tablet", "monitor", "keyboard", "mouse", "other", "unknown"). Use lowercase.
-        - "condition_description": string (brief description of visible physical condition: scratches, cracks, dents, wear, cleanliness).
-        - "extracted_text": string (any clearly visible brand or model text, otherwise empty string "").
-
-        Example:
-        {
-          "device_type": "laptop",
-          "condition_description": "Minor scratches on lid, screen looks intact.",
-          "extracted_text": "Dell"
-        }
+        Analyze the image of an electronic waste item. Respond ONLY with a valid JSON object containing:
+        - "device_type": string (e.g., "smartphone", "laptop", "tablet", "monitor", "keyboard", "mouse", "other", "unknown").
+        - "condition_description": string (brief physical condition like 'minor scratches', 'screen cracked').
+        - "extracted_text": string (brand/model text if visible, otherwise "").
         """
-        
-        # Make the API call
+
         print("DEBUG: Sending request to Gemini API...")
         response = model.generate_content([prompt, img_pil], stream=False)
-        response.resolve() # Ensure response is fully processed
-        print("DEBUG: Received response from Gemini API.")
+        response.resolve()
 
-        # Clean potential markdown formatting around the JSON
-        cleaned_text = response.text.strip().lstrip('```json').rstrip('```').strip()
-        if not cleaned_text:
-            print("Warning: Gemini returned empty response text.")
-            return {"error": "Analysis returned no content."}
+        # Ensure response is in valid JSON format
+        cleaned_text = response.text.strip().replace('```json', '').replace('```', '').strip()
 
-        # Parse the cleaned text as JSON
+        print(f"DEBUG: Gemini Response (Cleaned) - {cleaned_text}")
         return json.loads(cleaned_text)
 
     except json.JSONDecodeError as json_err:
-        # Handle cases where Gemini response wasn't valid JSON
-        print(f"Error decoding Gemini JSON response: {json_err}")
-        raw_response = response.text if 'response' in locals() else 'N/A'
-        print(f"Raw response text: {raw_response}")
-        return {"error": "Failed to parse analysis result.", "raw_text": raw_response}
+        print(f"ERROR: JSON Decode Issue - {json_err}")
+        return {"error": "Invalid JSON format from Gemini."}
     except Exception as e:
-        # Handle other potential errors (API connection, model issues, configuration)
-        print(f"Error during Gemini API call or processing: {e}")
-        # Log detailed traceback on the server for debugging
+        print(f"ERROR: Gemini API Call Failed - {e}")
         traceback.print_exc()
-        return {"error": "An error occurred during image analysis."}
+        return {"error": "An error occurred while analyzing the image."}
 
 # --- Helper Function: Condition Categorization ---
 def categorize_condition(description):
-    """Categorizes condition based on keywords in the description."""
     description_lower = description.lower() if description else ""
-    # Define keywords for ranking condition (most severe first)
-    fair_keywords = ["crack", "shatter", "broken", "major dent", "heavy wear", "missing", "deep scratch", "water damage", "bent", "severe damage"]
-    great_keywords = ["like new", "pristine", "excellent", "no visible marks", "minimal wear", "very clean", "mint condition"]
-    good_keywords = ["minor scratch", "scuff", "small dent", "moderate wear", "some signs of use", "good condition", "fully functional"]
-    
-    # Check in order of severity
-    if any(k in description_lower for k in fair_keywords): return "fair"
-    # Check for great only if no fair keywords found
-    if any(k in description_lower for k in great_keywords): return "great"
-     # Check for good only if no fair/great keywords found
-    if any(k in description_lower for k in good_keywords): return "good"
-    
-    # Default if no specific keywords match
-    print(f"DEBUG: No strong condition keywords matched for description: '{description_lower[:100]}...'. Defaulting to 'good'.")
-    return "good"
+
+    fair_keywords = ["crack", "broken", "dent", "heavy wear", "missing", "deep scratch", "severe"]
+    great_keywords = ["like new", "pristine", "excellent", "no marks", "mint condition"]
+    good_keywords = ["minor scratch", "scuff", "small dent", "moderate wear", "used"]
+
+    if any(k in description_lower for k in fair_keywords):
+        return "fair"
+    if any(k in description_lower for k in great_keywords):
+        return "great"
+    if any(k in description_lower for k in good_keywords):
+        return "good"
+
+    return "good"  # Default to "good" if no keywords match
 
 # --- Helper Function: Price Lookup ---
 def get_price_estimate(device_type, condition_category, price_db):
-    """Retrieves the price range from the defined structure with fallbacks."""
     device_lower = device_type.lower().strip() if device_type else "unknown"
-    
-    # Fallback to "unknown" if the detected type isn't in our price structure
+
     if device_lower not in price_db:
-        print(f"Warning: Device type '{device_lower}' not found in price structure. Using 'unknown'.")
+        print(f"Warning: Unknown device type '{device_lower}', using fallback pricing.")
         device_lower = "unknown"
 
-    # Get prices for the device type, fallback to unknown prices if needed
     device_prices = price_db.get(device_lower, price_db["unknown"])
-    
-    # Get specific price range for the category, fallback to 'fair' price for that device type if category is invalid
     price_range = device_prices.get(condition_category, device_prices["fair"])
 
-    # Format the price range string, with a final safety net
-    if price_range and len(price_range) == 2:
-        return f"${price_range[0]} - ${price_range[1]}"
-    else:
-        # This should ideally not happen if PRICE_STRUCTURE is well-formed
-        print(f"ERROR: Invalid price range found for {device_lower}/{condition_category}. Using hardcoded fallback.")
-        return "$1 - $5 (Error)"
-
+    return f"${price_range[0]} - ${price_range[1]}" if len(price_range) == 2 else "$1 - $10 (Error)"
 # ============================================
 #      Flask App Initialization & Routes
 # ============================================
