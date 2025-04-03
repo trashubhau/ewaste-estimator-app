@@ -105,27 +105,21 @@ def categorize_condition(description):
 
 # --- Helper Function: Price Lookup ---
 def get_price_estimate(device_type, condition_category, price_db):
-    """Retrieves the price range from the defined structure with fallbacks."""
     device_lower = device_type.lower().strip() if device_type else "unknown"
     
-    # Fallback to "unknown" if the detected type isn't in our price structure
     if device_lower not in price_db:
-        print(f"Warning: Device type '{device_lower}' not found in price structure. Using 'unknown'.")
+        print(f"WARNING: Unrecognized device type '{device_lower}', defaulting to 'unknown'.")
         device_lower = "unknown"
 
-    # Get prices for the device type, fallback to unknown prices if needed
     device_prices = price_db.get(device_lower, price_db["unknown"])
-    
-    # Get specific price range for the category, fallback to 'fair' price for that device type if category is invalid
     price_range = device_prices.get(condition_category, device_prices["fair"])
 
-    # Format the price range string, with a final safety net
+    print(f"DEBUG: Price lookup for {device_lower} ({condition_category}) -> {price_range}")
+
     if price_range and len(price_range) == 2:
         return f"${price_range[0]} - ${price_range[1]}"
-    else:
-        # This should ideally not happen if PRICE_STRUCTURE is well-formed
-        print(f"ERROR: Invalid price range found for {device_lower}/{condition_category}. Using hardcoded fallback.")
-        return "$1 - $5 (Error)"
+    return "$1 - $5 (Error)"
+
 
 # ============================================
 #      Flask App Initialization & Routes
