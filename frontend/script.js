@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Configuration ---
     // !!! IMPORTANT: Replace this with the ACTUAL URL of your DEPLOYED backend !!!
-    const API_ENDPOINT = 'REPLACE_THIS_WITH_YOUR_DEPLOYED_BACKEND_URL/estimate';
+    const API_ENDPOINT = 'https://ewaste-estimator-app.onrender.com';
     // --- Get DOM Elements ---
     const uploadForm = document.getElementById('upload-form');
     const imageUpload = document.getElementById('image-upload');
