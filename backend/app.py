@@ -1,19 +1,17 @@
-# backend/app.py
-# ============================================
-#      COMPLETE CODE FOR app.py
-# ============================================
-
-import os
+from flask import Flask, request, jsonify
+import google.generativeai as genai
+from PIL import Image
 import io
 import json
-import google.generativeai as genai
-from flask import Flask, request, jsonify
-from flask_cors import CORS # For allowing frontend to talk to backend
-from PIL import Image
-import traceback # Optional: for more detailed error logging
 
-# --- Price Structure Definition ---
-# Define your price ranges here
+app = Flask(__name__)
+
+# Configure Gemini API Key
+GOOGLE_API_KEY = "your_gemini_api_key_here"
+genai.configure(api_key=GOOGLE_API_KEY)
+model = genai.GenerativeModel('gemini-1.5-flash')  # Ensure the model supports image input
+
+# Price structure (Example)
 PRICE_STRUCTURE = {
     "smartphone": {"fair": [10, 50], "good": [51, 150], "great": [151, 400]},
     "laptop": {"fair": [30, 100], "good": [101, 350], "great": [351, 800]},
@@ -21,213 +19,88 @@ PRICE_STRUCTURE = {
     "monitor": {"fair": [5, 25], "good": [26, 75], "great": [76, 150]},
     "keyboard": {"fair": [1, 5], "good": [6, 15], "great": [16, 40]},
     "mouse": {"fair": [1, 5], "good": [6, 15], "great": [16, 35]},
-    "unknown": {"fair": [1, 10], "good": [1, 10], "great": [1, 10]} # Fallback
+    "unknown": {"fair": [1, 10], "good": [1, 10], "great": [1, 10]},
 }
 
-# --- Helper Function: Gemini Analysis ---
 def analyze_image_with_gemini(image_data):
-    """Sends image data to Gemini for analysis and returns parsed JSON or error dict."""
-    api_key = os.environ.get('GEMINI_API_KEY')
-    if not api_key:
-        print("FATAL ERROR: GEMINI_API_KEY environment variable not set on the server.")
-        # Note: This error will likely prevent the app from starting if key is missing during init sometimes
-        return {"error": "Server configuration error: API key missing."}
+    """Analyzes the image with Gemini AI and returns the device type, condition, and extracted text."""
     try:
-        # Configure the API key for this specific call (safer if app runs multiple things)
-        genai.configure(api_key=api_key)
-        # Choose a model that supports vision input
-        model = genai.GenerativeModel('gemini-1.5-flash') # Or 'gemini-pro-vision'
-        
         img_pil = Image.open(io.BytesIO(image_data))
-
-        # Define the prompt asking for structured JSON output
         prompt = """
-        Analyze the image of an electronic waste item. Return ONLY a JSON object with these keys:
-        {
-         "device_type": "smartphone/laptop/tablet/monitor/keyboard/mouse/unknown",
-          "condition_description": "string",
-          "extracted_text": "string"
-        }
-        Ensure that you provide a valid JSON response with double quotes and NO extra text.
+        Analyze the following image of an electronic waste item.
+        Provide your response as a JSON object with the following keys:
+        - "device_type": (e.g., smartphone, laptop, tablet, etc.)
+        - "condition_description": (visible physical condition like scratches, cracks, dents)
+        - "extracted_text": (brand name or model number if visible, otherwise null)
         """
 
-        
-        # Make the API call
-        print("DEBUG: Sending request to Gemini API...")
         response = model.generate_content([prompt, img_pil], stream=False)
-        response.resolve() # Ensure response is fully processed
-        print("DEBUG: Received response from Gemini API.")
+        response.resolve()
 
-        # Clean potential markdown formatting around the JSON
-        cleaned_text = response.text.strip().lstrip('```json').rstrip('```').strip()
-        if not cleaned_text:
-            print("Warning: Gemini returned empty response text.")
-            return {"error": "Analysis returned no content."}
+        try:
+            cleaned_text = response.text.strip().lstrip('json').rstrip('').strip()
+            return json.loads(cleaned_text)
+        except json.JSONDecodeError:
+            return {"raw_text": response.text}
 
-        # Parse the cleaned text as JSON
-        return json.loads(cleaned_text)
-
-    except json.JSONDecodeError as json_err:
-        # Handle cases where Gemini response wasn't valid JSON
-        print(f"Error decoding Gemini JSON response: {json_err}")
-        raw_response = response.text if 'response' in locals() else 'N/A'
-        print(f"Raw response text: {raw_response}")
-        return {"error": "Failed to parse analysis result.", "raw_text": raw_response}
     except Exception as e:
-        # Handle other potential errors (API connection, model issues, configuration)
-        print(f"Error during Gemini API call or processing: {e}")
-        # Log detailed traceback on the server for debugging
-        traceback.print_exc()
-        return {"error": "An error occurred during image analysis."}
+        return {"error": str(e)}
 
-# --- Helper Function: Condition Categorization ---
 def categorize_condition(description):
-    """Categorizes condition based on keywords in the description."""
+    """Categorizes the condition based on keywords in the description."""
     description_lower = description.lower() if description else ""
-    # Define keywords for ranking condition (most severe first)
-    fair_keywords = ["crack", "shatter", "broken", "major dent", "heavy wear", "missing", "deep scratch", "water damage", "bent", "severe damage"]
-    great_keywords = ["like new", "pristine", "excellent", "no visible marks", "minimal wear", "very clean", "mint condition"]
-    good_keywords = ["minor scratch", "scuff", "small dent", "moderate wear", "some signs of use", "good condition", "fully functional"]
+    fair_keywords = ["crack", "shatter", "broken", "major dent", "heavy wear", "missing", "doesn't power", "water damage"]
+    good_keywords = ["minor scratch", "scuff", "small dent", "moderate wear", "fully functional"]
+    great_keywords = ["like new", "pristine", "excellent", "no visible marks"]
+
+    if any(keyword in description_lower for keyword in fair_keywords):
+        return "fair"
+    elif any(keyword in description_lower for keyword in great_keywords):
+        return "great"
+    elif any(keyword in description_lower for keyword in good_keywords):
+        return "good"
+    else:
+        return "good"
+
+def get_price_estimate(device_type, condition_category):
+    """Retrieves the price range from the predefined structure."""
+    device_type_lower = device_type.lower() if device_type else "unknown"
+    category_prices = PRICE_STRUCTURE.get(device_type_lower, PRICE_STRUCTURE["unknown"])
+    price_range = category_prices.get(condition_category, [1, 10])
+    return f"${price_range[0]} - ${price_range[1]}"
+
+@app.route('/estimate-price', methods=['POST'])
+def estimate_price():
+    """API endpoint to estimate the price of an e-waste item from an uploaded image."""
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
     
-    # Check in order of severity
-    if any(k in description_lower for k in fair_keywords): return "fair"
-    # Check for great only if no fair keywords found
-    if any(k in description_lower for k in great_keywords): return "great"
-     # Check for good only if no fair/great keywords found
-    if any(k in description_lower for k in good_keywords): return "good"
-    
-    # Default if no specific keywords match
-    print(f"DEBUG: No strong condition keywords matched for description: '{description_lower[:100]}...'. Defaulting to 'good'.")
-    return "good"
-
-# --- Helper Function: Price Lookup ---
-def get_price_estimate(device_type, condition_category, price_db):
-    device_lower = device_type.lower().strip() if device_type else "unknown"
-    
-    if device_lower not in price_db:
-        print(f"WARNING: Unrecognized device type '{device_lower}', defaulting to 'unknown'.")
-        device_lower = "unknown"
-
-    device_prices = price_db.get(device_lower, price_db["unknown"])
-    price_range = device_prices.get(condition_category, device_prices["fair"])
-
-    print(f"DEBUG: Price lookup for {device_lower} ({condition_category}) -> {price_range}")
-
-    if price_range and len(price_range) == 2:
-        return f"${price_range[0]} - ${price_range[1]}"
-    return "$1 - $5 (Error)"
-
-
-# ============================================
-#      Flask App Initialization & Routes
-# ============================================
-
-# Initialize Flask App
-app = Flask(__name__)
-
-# Enable CORS - Allow requests from your frontend domain
-# Replace '*' with your specific frontend URL in production for better security
-# e.g., origins="https://your-frontend-name.onrender.com"
-CORS(app) # Allows all origins for now
-
-# --- Home Route (Basic Health Check) ---
-@app.route('/')
-def home():
-    """Simple route to confirm the backend is running."""
-    print("DEBUG: Request received for / route")
-    return "E-Waste Estimator Backend is Alive!"
-
-# --- Estimation Route (Handles GET and POST) ---
-@app.route('/estimate', methods=['GET', 'POST']) # Allow both GET and POST
-def handle_estimation():
-    """Handles GET requests with info and POST requests for image analysis."""
-    
-    # --- Handle GET Requests ---
-    if request.method == 'GET':
-        print("DEBUG: GET request received for /estimate")
-        # Return an informational message for GET requests
-        return jsonify({
-            "message": "This endpoint estimates e-waste value via POST requests with image data.",
-            "usage": "Send a POST request using multipart/form-data including an 'image' file part.",
-            "status": "Ready for POST requests."
-        }), 200 # OK status for GET
-
-    # --- Handle POST Requests (Genuine Logic) ---
-    # If not GET, it must be POST because of methods=['GET', 'POST']
-    print("DEBUG: POST request received for /estimate")
-    # Check if the 'image' file part is in the request
-    if 'image' not in request.files:
-        print("ERROR: 'image' file part missing in POST request.")
-        return jsonify({"error": "No image file part in the request."}), 400 # Bad Request
-
-    file = request.files['image']
-    # Check if a filename exists (means a file was actually selected)
+    file = request.files['file']
     if file.filename == '':
-        print("ERROR: No file selected in POST request.")
-        return jsonify({"error": "No image file selected."}), 400 # Bad Request
+        return jsonify({"error": "No selected file"}), 400
 
-    # Process the image file
-    try:
-        print(f"DEBUG: Processing uploaded file: {file.filename}")
-        img_data = file.read() # Read file content into memory
+    img_data = file.read()
+    analysis_result = analyze_image_with_gemini(img_data)
 
-        # Optional: Retrieve text data if sent from frontend
-        # brand = request.form.get('brand', '')
-        # model = request.form.get('model', '')
-        # issues = request.form.get('issues', '')
-        # print(f"DEBUG: Optional data - Brand: {brand}, Model: {model}, Issues: {issues}")
+    if "error" in analysis_result:
+        return jsonify({"error": analysis_result["error"]}), 500
 
-        # Call Gemini for analysis
-        print("DEBUG: Calling analyze_image_with_gemini...")
-        analysis_result = analyze_image_with_gemini(img_data)
-        # Log the full analysis result for easier debugging if needed
-        print(f"DEBUG: Raw analysis result from helper: {analysis_result}")
+    device_type = analysis_result.get("device_type", "unknown")
+    condition_description = analysis_result.get("condition_description", "")
+    extracted_text = analysis_result.get("extracted_text", "N/A")
 
-        # Check for errors returned from the analysis helper function
-        if not analysis_result or analysis_result.get("error"):
-            error_msg = analysis_result.get("error", "Analysis failed without specific error.") if analysis_result else "Analysis failed: No result."
-            print(f"ERROR: Analysis Helper Function Error: {error_msg}")
-            # Return 500 Internal Server Error for issues during backend processing/API calls
-            return jsonify({"error": error_msg}), 500
+    condition_category = categorize_condition(condition_description)
+    estimated_price = get_price_estimate(device_type, condition_category)
 
-        # Extract data from successful analysis
-        device_type = analysis_result.get("device_type", "unknown")
-        condition_desc = analysis_result.get("condition_description", "")
-        extracted_text = analysis_result.get("extracted_text", "")
-        print(f"DEBUG: Parsed Analysis - Type: {device_type}, Condition Desc: '{condition_desc[:50]}...', Text: '{extracted_text}'")
+    response = {
+        "device_type": device_type,
+        "condition_description": condition_description,
+        "condition_category": condition_category,
+        "extracted_text": extracted_text,
+        "estimated_price_range": estimated_price
+    }
 
-        # Categorize condition based on Gemini's description
-        condition_category = categorize_condition(condition_desc)
-        print(f"DEBUG: Categorized condition as: {condition_category}")
-        # Future Enhancement: Combine with 'issues' input from user if available
+    return jsonify(response)
 
-        # Get price range based on type and category
-        price = get_price_estimate(device_type, condition_category, PRICE_STRUCTURE)
-        print(f"DEBUG: Calculated estimated price range: {price}")
-
-        # Prepare informative string for the frontend
-        detected_info = f"Detected: {device_type.capitalize()} | Assessed Condition: {condition_category.capitalize()}"
-        if extracted_text:
-            detected_info += f" | Extracted Text: '{extracted_text}'"
-
-        # Send successful response back to the frontend
-        print("DEBUG: Sending successful POST response.")
-        return jsonify({
-            "estimated_price": price,
-            "detected_info": detected_info
-        }), 200 # OK status for successful POST
-
-    except FileNotFoundError:
-         # This shouldn't happen with request.files but added as safety
-         print(f"ERROR: File not found during processing - unexpected.")
-         return jsonify({"error": "File processing error."}), 500
-    except Exception as e:
-        # Catch any other unexpected errors during POST processing
-        print(f"ERROR: Unexpected error in /estimate POST handler: {e}")
-        # Log the full traceback to the server logs for detailed debugging
-        traceback.print_exc()
-        return jsonify({"error": "An unexpected server error occurred. Please try again later."}), 500
-
-# ============================================
-#      End of app.py
-# ============================================
+if __name__ == '__main__':
+    app.run(debug=True)
