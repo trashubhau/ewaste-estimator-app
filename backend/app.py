@@ -109,19 +109,16 @@ def home():
 @app.route('/estimate', methods=['GET', 'POST'])
 def handle_estimation():
     if request.method == 'GET':
-        brand = request.args.get('brand', '')
-        model = request.args.get('model', '')
-        issues = request.args.get('issues', '')
-        
-        # Simulate a response since images can't be processed via GET
+        # Example: Return a mock response for GET requests
         return jsonify({
             "estimated_price": "$50 - $150",
-            "detected_info": f"Mock Data - Brand: {brand}, Model: {model}, Issues: {issues}"
+            "detected_info": "Mock data - No image uploaded, testing mode."
         })
 
     # Handle POST as usual for actual image uploads
     if 'image' not in request.files:
         return jsonify({"error": "No image file part in the request."}), 400
+
 
 
 # Note: The following block is NOT used by Gunicorn on Render
