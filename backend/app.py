@@ -106,59 +106,54 @@ def home():
     return "E-Waste Estimator Backend is Alive!"
 
 # The main endpoint for estimation
-@app.route('/estimate', methods=['POST'])
+# backend/app.py
+# ... (keep imports, PRICE_STRUCTURE, helper function definitions, app = Flask(__name__), CORS(app)) ...
+
+# Simple route to check if the backend is running
+@app.route('/')
+def home():
+    return "E-Waste Estimator Backend is Alive!"
+
+# The main endpoint for estimation - TEMPORARILY SIMPLIFIED FOR DEBUGGING 405
+@app.route('/estimate', methods=['POST']) # Ensure methods=['POST'] is still here!
 def handle_estimation():
-    if 'image' not in request.files:
-        return jsonify({"error": "No image file part in the request."}), 400
+    print("DEBUG: /estimate POST request received!") # Add a print statement
 
-    file = request.files['image']
-    if file.filename == '':
-        return jsonify({"error": "No image file selected."}), 400
+    # --- TEMPORARILY COMMENT OUT ALL ORIGINAL LOGIC ---
+    # if 'image' not in request.files:
+    #     return jsonify({"error": "No image file part in the request."}), 400
+    # file = request.files['image']
+    # if file.filename == '':
+    #     return jsonify({"error": "No image file selected."}), 400
+    # try:
+    #     img_data = file.read()
+    #     analysis_result = analyze_image_with_gemini(img_data)
+    #     if analysis_result.get("error"):
+    #         print(f"Analysis Error Reported: {analysis_result['error']}")
+    #         return jsonify({"error": analysis_result['error']}), 500
+    #     device_type = analysis_result.get("device_type", "unknown")
+    #     condition_desc = analysis_result.get("condition_description", "")
+    #     extracted_text = analysis_result.get("extracted_text", "")
+    #     condition_category = categorize_condition(condition_desc)
+    #     price = get_price_estimate(device_type, condition_category, PRICE_STRUCTURE)
+    #     detected_info = f"Detected: {device_type.capitalize()} | Assessed Condition: {condition_category.capitalize()}"
+    #     if extracted_text:
+    #         detected_info += f" | Extracted Text: '{extracted_text}'"
+    #     # --- END OF ORIGINAL LOGIC TO COMMENT OUT ---
 
-    try:
-        img_data = file.read()
-        # Optional: Get text data if you added those fields
-        # brand = request.form.get('brand', '')
-        # model = request.form.get('model', '')
-        # issues = request.form.get('issues', '')
+    # --- TEMPORARY SIMPLE RESPONSE ---
+    print("DEBUG: Returning simple success response.")
+    return jsonify({
+        "estimated_price": "$0 - $0 (Debug Mode)",
+        "detected_info": "Backend received POST request successfully (Debug Mode)."
+    })
 
-        # Call Gemini for analysis
-        analysis_result = analyze_image_with_gemini(img_data)
+    # --- Keep commented out original error handling ---
+    # except Exception as e:
+    #     print(f"Unexpected error in /estimate endpoint: {e}")
+    #     return jsonify({"error": "An unexpected error occurred processing the request."}), 500
 
-        # Check for errors returned from the analysis function
-        if analysis_result.get("error"):
-            print(f"Analysis Error Reported: {analysis_result['error']}")
-            # Return a 500 Internal Server Error status code for server-side issues
-            return jsonify({"error": analysis_result['error']}), 500
-
-        # Process successful analysis
-        device_type = analysis_result.get("device_type", "unknown")
-        condition_desc = analysis_result.get("condition_description", "")
-        extracted_text = analysis_result.get("extracted_text", "")
-
-        # Categorize condition based on description
-        condition_category = categorize_condition(condition_desc)
-        # TODO: Optionally override category based on user 'issues' input if implemented
-
-        # Get price range
-        price = get_price_estimate(device_type, condition_category, PRICE_STRUCTURE)
-
-        # Prepare useful info string for frontend
-        detected_info = f"Detected: {device_type.capitalize()} | Assessed Condition: {condition_category.capitalize()}"
-        if extracted_text:
-            detected_info += f" | Extracted Text: '{extracted_text}'"
-
-        # Send success response
-        return jsonify({
-            "estimated_price": price,
-            "detected_info": detected_info
-        })
-
-    except Exception as e:
-        # Catch any other unexpected errors during processing
-        print(f"Unexpected error in /estimate endpoint: {e}")
-        # Be careful not to expose too much detail in production errors
-        return jsonify({"error": "An unexpected error occurred processing the request."}), 500
+# --- (Keep other helper functions like analyze_image_with_gemini etc., even though not called now) ---
 
 # Note: The following block is NOT used by Gunicorn on Render
 # if __name__ == '__main__':
