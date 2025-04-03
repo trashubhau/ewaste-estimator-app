@@ -71,11 +71,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- API Call ---
         try {
-            const response = await fetch(API_ENDPOINT, {
-                method: 'POST',
-                body: formData,
-                // Headers like 'Content-Type': 'multipart/form-data' are set automatically by fetch with FormData
-            });
+            const response = await fetch(`${API_ENDPOINT}/estimate?brand=${encodeURIComponent(brandInput.value.trim())}&model=${encodeURIComponent(modelInput.value.trim())}&issues=${encodeURIComponent(issuesInput.value.trim())}`, {
+    method: 'GET',
+});
+
 
             // Check if response is okay (status code 200-299)
             if (response.ok) {
