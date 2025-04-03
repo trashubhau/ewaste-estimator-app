@@ -1,6 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const API_ENDPOINT = 'https://ewaste-estimator-app.onrender.com';
+    // --- Configuration ---
+    const API_ENDPOINT = 'https://ewaste-estimator-app.onrender.com';  // Ensure this is correct
 
+    // --- Get DOM Elements ---
     const uploadForm = document.getElementById('upload-form');
     const imageUpload = document.getElementById('image-upload');
     const imagePreviewContainer = document.getElementById('image-preview-container');
@@ -17,29 +19,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const priceRangeDisplay = document.getElementById('price-range');
     const detectedInfoDisplay = document.getElementById('detected-info');
 
+    // --- Reset UI on Load ---
+    function resetUI() {
+        fileNameDisplay.textContent = 'No file chosen';
+        imagePreviewContainer.classList.add('hidden');
+        imagePreview.src = '';
+        clearStatus();
+        resultsDisplay.classList.add('hidden');
+    }
+    resetUI(); // Call function to reset UI on page load
+
+    // --- Event Listeners ---
+    
+    // Handle file selection and preview
     imageUpload.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (file) {
             fileNameDisplay.textContent = file.name.length > 30 ? `${file.name.substring(0, 27)}...` : file.name;
-
             const reader = new FileReader();
             reader.onload = (e) => {
                 imagePreview.src = e.target.result;
                 imagePreviewContainer.classList.remove('hidden');
             };
             reader.readAsDataURL(file);
-
             clearStatus();
             resultsDisplay.classList.add('hidden');
         } else {
-            fileNameDisplay.textContent = 'No file chosen';
-            imagePreviewContainer.classList.add('hidden');
-            imagePreview.src = '#';
+            resetUI();
         }
     });
 
+    // Handle form submission
     uploadForm.addEventListener('submit', async (event) => {
-        event.preventDefault(); // Prevent default form submission
+        event.preventDefault(); // Prevent default form submission behavior
 
         const file = imageUpload.files[0];
         if (!file) {
@@ -47,9 +59,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // --- Prepare UI for loading ---
         setLoadingState(true);
         clearStatus();
         resultsDisplay.classList.add('hidden');
+
+        // --- Prepare API call ---
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('brand', brandInput.value.trim());
+        formData.append('model', modelInput.value.trim());
+        formData.append('issues', issuesInput.value.trim());
 
         try {
             const response = await fetch(`${API_ENDPOINT}/estimate?brand=${encodeURIComponent(brandInput.value.trim())}&model=${encodeURIComponent(modelInput.value.trim())}&issues=${encodeURIComponent(issuesInput.value.trim())}`, {
@@ -67,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         errorMsg = `Error: ${errorResult.error}`;
                     }
                 } catch (e) {
-                    console.warn("Could not parse error response body:", e);
+                    console.warn("Could not parse error response:", e);
                 }
                 showStatus(errorMsg, 'error');
                 resultsDisplay.classList.add('hidden');
@@ -81,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Helper Functions ---
     function setLoadingState(isLoading) {
         submitButton.disabled = isLoading;
         buttonText.textContent = isLoading ? 'Processing...' : 'Get Estimate';
@@ -90,8 +111,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function showStatus(message, type = 'info') {
         statusMessage.textContent = message;
         statusMessage.className = 'status';
-        if (type === 'error') statusMessage.classList.add('error');
-        else if (type === 'loading') statusMessage.classList.add('loading');
+        if (type === 'error') {
+            statusMessage.classList.add('error');
+        } else if (type === 'loading') {
+            statusMessage.classList.add('loading');
+        }
     }
 
     function clearStatus() {
