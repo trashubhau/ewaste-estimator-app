@@ -27,10 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
         clearStatus();
         resultsDisplay.classList.add('hidden');
     }
-    resetUI(); // Call function to reset UI on page load
+    resetUI();
 
     // --- Event Listeners ---
-    
+
     // Handle file selection and preview
     imageUpload.addEventListener('change', (event) => {
         const file = event.target.files[0];
@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handle form submission
     uploadForm.addEventListener('submit', async (event) => {
-        event.preventDefault(); // Prevent default form submission behavior
+        event.preventDefault();
 
         const file = imageUpload.files[0];
         if (!file) {
@@ -72,8 +72,9 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('issues', issuesInput.value.trim());
 
         try {
-            const response = await fetch(`${API_ENDPOINT}/estimate?brand=${encodeURIComponent(brandInput.value.trim())}&model=${encodeURIComponent(modelInput.value.trim())}&issues=${encodeURIComponent(issuesInput.value.trim())}`, {
-                method: 'GET',
+            const response = await fetch(`${API_ENDPOINT}/estimate`, {
+                method: 'POST',
+                body: formData
             });
 
             if (response.ok) {
